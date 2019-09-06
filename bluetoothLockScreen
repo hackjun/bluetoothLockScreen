@@ -1,0 +1,81 @@
+#!/usr/local/php/bin/php
+<?php
+/**
+ * Created by PhpStorm.
+ * User: jett
+ * Date: 2019/3/17
+ * Time: 下午9:38
+ */
+
+ob_implicit_flush(1);
+
+$lockStatus = false;
+$scanStatus = false;
+$myBluetoothCode = "A4:50:46:3A:8E:4C";
+$logName = __DIR__."/bluetooth_list.log";
+
+run();
+
+function run()
+{
+    global $lockStatus;
+    stopScan();
+    startScan();
+    while (true) {
+        $lockStatus ?: sleep(10);
+        $deviceStatus = getDeviceStatus();
+        if ($deviceStatus) {
+            !$lockStatus ?: unlock();
+            stopScan();
+            startScan();
+        } else {
+            $lockStatus ?: lock();
+        }
+        sleep(1);
+    }
+}
+
+function startScan()
+{
+    global $logName;
+    global $scanStatus;
+    $scanStatus = true;
+    system("bluelog -d -o {$logName}");
+}
+
+function stopScan()
+{
+    global $logName;
+    global $scanStatus;
+    $scanStatus = false;
+    system("bluelog -k");
+    if (is_file($logName)) {
+        unlink($logName);
+    }
+}
+
+function getDeviceStatus()
+{
+    global $logName;
+    global $myBluetoothCode;
+    $fileContents = explode(PHP_EOL, file_get_contents($logName));
+    if (in_array($myBluetoothCode, $fileContents)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function lock()
+{
+    global $lockStatus;
+    $lockStatus = true;
+    system("loginctl lock-session");
+}
+
+function unlock()
+{
+    global $lockStatus;
+    $lockStatus = false;
+    system("loginctl unlock-session");
+}
